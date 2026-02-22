@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card } from '../UI/Card';
 import { Badge } from '../UI/Badge';
 import { MoneyDisplay } from '../UI/MoneyDisplay';
@@ -15,6 +15,8 @@ import { useRecentSearches } from '../../hooks/useRecentSearches';
 import { useQueries } from '@tanstack/react-query';
 import { hex } from '@scure/base';
 import { CosignerPublicKey, getArkPsbtFields } from '@arkade-os/sdk';
+import { FlowDiagram } from './FlowDiagram';
+import type { FlowInput, FlowOutput } from './FlowDiagram';
 
 interface TransactionDetailsProps {
   txid: string;
@@ -381,8 +383,60 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
     const timestamp = expiresAt < 10000000000 ? expiresAt * 1000 : expiresAt;
     return formatTimestamp(timestamp);
   };
+
+  // Prepare flow diagram data
+  const flowDiagramData = useMemo(() => {
+    if (!parsedTx) return null;
+    
+    const inputs: FlowInput[] = [];
+    const outputs: FlowOutput[] = [];
+    let fee = 0;
+    
+    // Collect inputs
+    for (let i = 0; i < parsedTx.inputsLength; i++) {
+      const input = parsedTx.getInput(i);
+      let amount = 0;
+      
+      if (input?.witnessUtxo?.amount) {
+        amount = Number(input.witnessUtxo.amount);
+      }
+      
+      inputs.push({ amount, index: i });
+    }
+    
+    // Collect outputs
+    for (let i = 0; i < parsedTx.outputsLength; i++) {
+      const output = parsedTx.getOutput(i);
+      const amount = output?.amount ? Number(output.amount) : 0;
+      const scriptHex = output?.script 
+        ? Array.from(output.script).map(b => b.toString(16).padStart(2, '0')).join('')
+        : '';
+      const isAnchor = scriptHex.startsWith('51024e73');
+      
+      outputs.push({ amount, index: i, isAnchor });
+    }
+    
+    // Calculate fee for commitment transactions only
+    if (type === 'commitment' && data?.tx) {
+      const inputTotal = inputs.reduce((sum, inp) => sum + inp.amount, 0);
+      const outputTotal = outputs.reduce((sum, out) => sum + out.amount, 0);
+      fee = Math.max(0, inputTotal - outputTotal);
+    }
+    
+    return { inputs, outputs, fee };
+  }, [parsedTx, type, data]);
+
   return (
     <div className="space-y-6">
+      {/* Flow Diagram */}
+      {flowDiagramData && flowDiagramData.inputs.length > 0 && (
+        <FlowDiagram
+          inputs={flowDiagramData.inputs}
+          outputs={flowDiagramData.outputs}
+          fee={flowDiagramData.fee}
+        />
+      )}
+      
       <Card glowing>
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-arkade-purple uppercase">
