@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '../UI/Card';
 import { Badge } from '../UI/Badge';
 import { MoneyDisplay } from '../UI/MoneyDisplay';
-import { TxFlowDiagram } from './TxFlowDiagram';
 import { truncateHash, formatTimestamp, copyToClipboard } from '../../lib/utils';
 import * as btc from '@scure/btc-signer';
 import { Link } from 'react-router-dom';
@@ -382,114 +381,6 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
     const timestamp = expiresAt < 10000000000 ? expiresAt * 1000 : expiresAt;
     return formatTimestamp(timestamp);
   };
-
-  // Prepare flow diagram data
-  const flowDiagramData = useMemo(() => {
-    if (!parsedTx) return null;
-
-    // Build inputs array with explicit type
-    type FlowInputType = {
-      txid?: string;
-      vout?: number;
-      amount?: number;
-      type?: 'regular' | 'coinbase' | 'forfeit';
-    };
-    
-    const inputs: FlowInputType[] = Array.from({ length: parsedTx.inputsLength }).map((_, i) => {
-      const input = parsedTx!.getInput(i);
-      const inputTxid = input?.txid 
-        ? Array.from(input.txid).map(b => b.toString(16).padStart(2, '0')).join('')
-        : '';
-      
-      let amount: number | undefined;
-      if (input?.witnessUtxo?.amount) {
-        amount = Number(input.witnessUtxo.amount);
-      }
-
-      return {
-        txid: inputTxid,
-        vout: input?.index,
-        amount,
-        type: 'regular' as const,
-      };
-    });
-
-    // Add forfeit txids as inputs for commitment transactions
-    if (type === 'commitment' && data?.forfeitTxids) {
-      data.forfeitTxids.forEach((forfeitTxid: string) => {
-        inputs.push({
-          txid: forfeitTxid,
-          vout: 0,
-          amount: undefined,
-          type: 'forfeit' as const,
-        });
-      });
-    }
-
-    // Build outputs array
-    const outputs = Array.from({ length: parsedTx.outputsLength }).map((_, i) => {
-      const output = parsedTx!.getOutput(i);
-      const amount = output?.amount ? Number(output.amount) : 0;
-      const scriptHex = output?.script 
-        ? Array.from(output.script).map(b => b.toString(16).padStart(2, '0')).join('')
-        : '';
-      const isAnchor = scriptHex.startsWith('51024e73');
-      const isForfeitOutput = isForfeitTx && scriptHex === forfeitScriptHex;
-      
-      // Check if this is a batch output
-      const batchKey = i.toString();
-      const batch = data?.batches?.[batchKey];
-      const isBatch = batch && parseInt(batch.totalOutputAmount || '0') > 0;
-      
-      // Check if this is a connector output
-      const isConnector = connectorOutputIndices.has(i);
-
-      let outputType: 'regular' | 'anchor' | 'forfeit' | 'connector' | 'batch' = 'regular';
-      if (isAnchor) outputType = 'anchor';
-      else if (isForfeitOutput) outputType = 'forfeit';
-      else if (isConnector) outputType = 'connector';
-      else if (isBatch) outputType = 'batch';
-
-      // Try to get Ark address for output
-      let address = '';
-      if (!isAnchor && !isForfeitOutput && !isCheckpointTx && !isConnectorTreeTx && output?.script && serverInfo?.signerPubkey && serverInfo?.network) {
-        try {
-          const addr = constructArkAddress(output.script, serverInfo.signerPubkey, serverInfo.network);
-          if (addr) address = addr;
-        } catch (e) {
-          // Ignore
-        }
-      }
-
-      // Find corresponding VTXO
-      const vtxo = vtxoData?.find(v => ((v as any).outpoint?.vout ?? (v as any).vout) === i);
-      const spentBy = vtxo?.spentBy && vtxo.spentBy !== '' ? vtxo.spentBy : undefined;
-
-      // Determine link for output
-      let linkTo: string | undefined;
-      if (isBatch && batchRootTxids.get(i)) {
-        linkTo = `/tx/${batchRootTxids.get(i)}`;
-      } else if (isConnector && rootConnectorTxid) {
-        linkTo = `/tx/${rootConnectorTxid}`;
-      } else if (spentBy) {
-        linkTo = `/tx/${spentBy}`;
-      } else if (address) {
-        linkTo = `/address/${address}`;
-      }
-
-      return {
-        address,
-        amount,
-        type: outputType,
-        spentBy,
-        linkTo,
-        label: isBatch ? `Batch #${parseInt(batchKey) + 1}` : isConnector ? 'Connector' : isForfeitOutput ? 'Forfeit' : undefined,
-      };
-    });
-
-    return { inputs, outputs };
-  }, [parsedTx, type, data, isForfeitTx, forfeitScriptHex, isCheckpointTx, isConnectorTreeTx, serverInfo, vtxoData, connectorOutputIndices, batchRootTxids, rootConnectorTxid]);
-
   return (
     <div className="space-y-6">
       <Card glowing>
@@ -599,22 +490,6 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
                 </div>
               </div>
             </>
-          )}
-
-          {/* Flow Diagram for commitment transactions */}
-          {type === 'commitment' && parsedTx && flowDiagramData && (
-            <div className="mt-6 mb-6">
-              <h3 className="text-lg font-bold text-arkade-purple uppercase mb-3">Transaction Flow</h3>
-              <div className="bg-arkade-black/50 rounded-lg p-4 overflow-x-auto">
-                <TxFlowDiagram
-                  txid={txid}
-                  inputs={flowDiagramData.inputs}
-                  outputs={flowDiagramData.outputs}
-                  width={700}
-                  height={Math.max(200, Math.max(flowDiagramData.inputs.length, flowDiagramData.outputs.length) * 50)}
-                />
-              </div>
-            </div>
           )}
           
           {type === 'commitment' && parsedTx && (
@@ -772,22 +647,6 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
                     );
                   })}
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Flow Diagram for arkade transactions */}
-          {type === 'arkade' && parsedTx && flowDiagramData && (
-            <div className="mt-6 mb-6">
-              <h3 className="text-lg font-bold text-arkade-purple uppercase mb-3">Transaction Flow</h3>
-              <div className="bg-arkade-black/50 rounded-lg p-4 overflow-x-auto">
-                <TxFlowDiagram
-                  txid={txid}
-                  inputs={flowDiagramData.inputs}
-                  outputs={flowDiagramData.outputs}
-                  width={700}
-                  height={Math.max(200, Math.max(flowDiagramData.inputs.length, flowDiagramData.outputs.length) * 50)}
-                />
               </div>
             </div>
           )}
