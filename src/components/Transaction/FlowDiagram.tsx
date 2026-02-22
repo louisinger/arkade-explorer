@@ -75,36 +75,38 @@ export function FlowDiagram({
 
   // Hover effects removed
 
-  // Generate connector path (filled polygon with chevron) for inputs
-  // The tip must reach exactly where the line starts: (thickness/2) + connectorWidth
+  // Generate connector path for inputs - arrow shape with V-notch on left
+  // Creates shape like: ════> where the left has a V cut into it
   const makeInputConnectorPath = (y: number, thickness: number) => {
     const halfWidth = thickness / 2;
     const connectorWidth = config.connectorWidth;
-    // Line starts at: halfWidth + connectorWidth
-    // Chevron tip should be at the same point (or slightly past for overlap)
-    const tipX = halfWidth + connectorWidth;
-    const indentX = connectorWidth - 5; // Inner part of chevron
+    // The notch (V cut) point - this is where the V points INTO the band
+    const notchTipX = halfWidth * 0.8; // Notch points right, into the band
+    // The outer edges of the band at the connector
+    const outerX = halfWidth + connectorWidth;
     
-    return `M ${indentX} ${y - halfWidth} 
-            L ${tipX} ${y} 
-            L ${indentX} ${y + halfWidth} 
-            L -10 ${y + halfWidth} 
-            L -10 ${y - halfWidth} Z`;
+    // Shape: rectangle from off-screen, with V-notch on left side
+    // Top edge from off-screen to outer, then notch, then bottom edge back
+    return `M -10 ${y - halfWidth}
+            L ${outerX} ${y - halfWidth}
+            L ${outerX} ${y - halfWidth}
+            L ${notchTipX} ${y}
+            L ${outerX} ${y + halfWidth}
+            L -10 ${y + halfWidth} Z`;
   };
 
-  // Generate connector path for outputs (chevron pointing right at the end)
+  // Generate connector path for outputs - arrow shape with V-notch on right  
   const makeOutputConnectorPath = (y: number, thickness: number) => {
     const halfWidth = thickness / 2;
     const connectorWidth = config.connectorWidth;
-    // Line ends at: width - (halfWidth + connectorWidth)
-    const tipX = width - halfWidth - connectorWidth;
-    const indentX = width - connectorWidth + 5;
+    const outerX = width - halfWidth - connectorWidth;
+    const notchTipX = width - halfWidth * 0.8;
     
-    return `M ${indentX} ${y - halfWidth} 
-            L ${tipX} ${y} 
-            L ${indentX} ${y + halfWidth} 
-            L ${width + 10} ${y + halfWidth} 
-            L ${width + 10} ${y - halfWidth} Z`;
+    return `M ${width + 10} ${y - halfWidth}
+            L ${outerX} ${y - halfWidth}
+            L ${notchTipX} ${y}
+            L ${outerX} ${y + halfWidth}
+            L ${width + 10} ${y + halfWidth} Z`;
   };
 
   if (!isVisible) {
