@@ -87,13 +87,11 @@ export function FlowDiagram({
   }, [hoveredLine, inputs, outputs]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      setTooltipPos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-    }
+    // Use client coordinates for fixed positioning
+    setTooltipPos({
+      x: e.clientX,
+      y: e.clientY,
+    });
   };
 
   // Generate connector path (filled polygon with chevron) for inputs - matches mempool.space exactly
@@ -304,13 +302,14 @@ export function FlowDiagram({
           )}
         </svg>
 
-        {/* Tooltip */}
+        {/* Tooltip - fixed position, follows mouse, non-interactive */}
         {hoveredData && (
           <div
-            className="absolute pointer-events-none bg-arkade-black/95 border border-arkade-purple rounded-lg px-3 py-2 text-xs z-50 max-w-xs"
+            className="fixed pointer-events-none bg-arkade-black/95 border border-arkade-purple rounded-lg px-3 py-2 text-xs z-[9999] max-w-xs shadow-lg"
             style={{
-              left: Math.min(tooltipPos.x + 10, width - 200),
-              top: tooltipPos.y - 60,
+              left: tooltipPos.x + 15,
+              top: tooltipPos.y - 10,
+              transform: 'translateY(-100%)',
             }}
           >
             {hoveredLine?.type === 'input' && (
