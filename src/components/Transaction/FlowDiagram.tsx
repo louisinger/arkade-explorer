@@ -75,15 +75,19 @@ export function FlowDiagram({
 
   // Hover effects removed
 
-  // Generate connector path (filled polygon with chevron) for inputs - matches mempool.space exactly
+  // Generate connector path (filled polygon with chevron) for inputs
+  // The tip must reach exactly where the line starts: (thickness/2) + connectorWidth
   const makeInputConnectorPath = (y: number, thickness: number) => {
     const halfWidth = thickness / 2;
     const connectorWidth = config.connectorWidth;
-    const offset = 10;
-    // Polygon: starts off-screen left, comes in, forms chevron pointing right
-    return `M ${connectorWidth - offset} ${y - halfWidth} 
-            L ${halfWidth + connectorWidth - offset} ${y} 
-            L ${connectorWidth - offset} ${y + halfWidth} 
+    // Line starts at: halfWidth + connectorWidth
+    // Chevron tip should be at the same point (or slightly past for overlap)
+    const tipX = halfWidth + connectorWidth;
+    const indentX = connectorWidth - 5; // Inner part of chevron
+    
+    return `M ${indentX} ${y - halfWidth} 
+            L ${tipX} ${y} 
+            L ${indentX} ${y + halfWidth} 
             L -10 ${y + halfWidth} 
             L -10 ${y - halfWidth} Z`;
   };
@@ -92,11 +96,13 @@ export function FlowDiagram({
   const makeOutputConnectorPath = (y: number, thickness: number) => {
     const halfWidth = thickness / 2;
     const connectorWidth = config.connectorWidth;
-    const offset = 10;
-    // Polygon: chevron on left, extends off-screen right
-    return `M ${width - halfWidth - connectorWidth + offset} ${y - halfWidth} 
-            L ${width - connectorWidth + offset} ${y} 
-            L ${width - halfWidth - connectorWidth + offset} ${y + halfWidth} 
+    // Line ends at: width - (halfWidth + connectorWidth)
+    const tipX = width - halfWidth - connectorWidth;
+    const indentX = width - connectorWidth + 5;
+    
+    return `M ${indentX} ${y - halfWidth} 
+            L ${tipX} ${y} 
+            L ${indentX} ${y + halfWidth} 
             L ${width + 10} ${y + halfWidth} 
             L ${width + 10} ${y - halfWidth} Z`;
   };
