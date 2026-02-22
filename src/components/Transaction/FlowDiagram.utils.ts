@@ -4,6 +4,8 @@ export interface FlowInput {
   amount: number;
   index: number;
   label?: string;
+  txid?: string;      // Previous tx that created this input
+  vout?: number;      // Output index in previous tx
 }
 
 export interface FlowOutput {
@@ -11,6 +13,8 @@ export interface FlowOutput {
   index: number;
   label?: string;
   isAnchor?: boolean;
+  scriptHex?: string; // Output script
+  spentBy?: string;   // Txid that spent this output (if spent)
 }
 
 export interface SvgLine {
@@ -19,6 +23,7 @@ export interface SvgLine {
   type: 'input' | 'output' | 'fee';
   index: number;
   zeroValue?: boolean;
+  outerY: number;  // Y position of the outer endpoint (for connectors)
 }
 
 export interface LineParams {
@@ -209,6 +214,7 @@ export function generateInputLines(
         type: 'input' as const,
         index: inputs[i].index,
         zeroValue: true,
+        outerY: line.outerY,
       };
     }
     
@@ -217,6 +223,7 @@ export function generateInputLines(
       thickness: line.thickness,
       type: 'input' as const,
       index: inputs[i].index,
+      outerY: line.outerY,
     };
   });
 }
@@ -246,6 +253,7 @@ export function generateOutputLines(
         type: 'output' as const,
         index: outputs[i].index,
         zeroValue: true,
+        outerY: line.outerY,
       };
     }
     
@@ -254,6 +262,7 @@ export function generateOutputLines(
       thickness: line.thickness,
       type: 'output' as const,
       index: outputs[i].index,
+      outerY: line.outerY,
     };
   });
 }

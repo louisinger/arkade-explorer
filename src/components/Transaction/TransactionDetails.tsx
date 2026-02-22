@@ -392,19 +392,27 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
     const outputs: FlowOutput[] = [];
     let fee = 0;
     
-    // Collect inputs
+    // Collect inputs with txid and vout for navigation
     for (let i = 0; i < parsedTx.inputsLength; i++) {
       const input = parsedTx.getInput(i);
       let amount = 0;
+      let inputTxid: string | undefined;
+      let inputVout: number | undefined;
       
       if (input?.witnessUtxo?.amount) {
         amount = Number(input.witnessUtxo.amount);
       }
       
-      inputs.push({ amount, index: i });
+      // Get the previous tx outpoint
+      if (input?.txid) {
+        inputTxid = Array.from(input.txid).map(b => b.toString(16).padStart(2, '0')).join('');
+        inputVout = input.index;
+      }
+      
+      inputs.push({ amount, index: i, txid: inputTxid, vout: inputVout });
     }
     
-    // Collect outputs
+    // Collect outputs with script and spent status
     for (let i = 0; i < parsedTx.outputsLength; i++) {
       const output = parsedTx.getOutput(i);
       const amount = output?.amount ? Number(output.amount) : 0;
@@ -413,7 +421,15 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
         : '';
       const isAnchor = scriptHex.startsWith('51024e73');
       
-      outputs.push({ amount, index: i, isAnchor });
+      // Check if this output is spent (from vtxoData)
+      const vtxo = vtxoData?.find(v => ((v as any).outpoint?.vout ?? (v as any).vout) === i);
+      const spentBy = vtxo?.spentBy && vtxo.spentBy !== '' 
+        ? vtxo.spentBy 
+        : ((vtxo as any)?.settledBy && (vtxo as any).settledBy !== '' 
+          ? (vtxo as any).settledBy 
+          : undefined);
+      
+      outputs.push({ amount, index: i, isAnchor, scriptHex, spentBy });
     }
     
     // Calculate fee for commitment transactions only
@@ -424,7 +440,7 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
     }
     
     return { inputs, outputs, fee };
-  }, [parsedTx, type, data]);
+  }, [parsedTx, type, data, vtxoData]);
 
   return (
     <div className="space-y-6">
