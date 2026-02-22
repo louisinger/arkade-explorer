@@ -444,15 +444,6 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
 
   return (
     <div className="space-y-6">
-      {/* Flow Diagram */}
-      {flowDiagramData && flowDiagramData.inputs.length > 0 && (
-        <FlowDiagram
-          inputs={flowDiagramData.inputs}
-          outputs={flowDiagramData.outputs}
-          fee={flowDiagramData.fee}
-        />
-      )}
-      
       <Card glowing>
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-arkade-purple uppercase">
@@ -1001,6 +992,15 @@ export function TransactionDetails({ txid, type, data, vtxoData }: TransactionDe
           </div>
         </div>
       </Card>
+      
+      {/* Flow Diagram - after main transaction section */}
+      {flowDiagramData && flowDiagramData.inputs.length > 0 && (
+        <FlowDiagram
+          inputs={flowDiagramData.inputs}
+          outputs={flowDiagramData.outputs}
+          fee={flowDiagramData.fee}
+        />
+      )}
     </div>
   );
 }

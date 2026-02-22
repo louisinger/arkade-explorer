@@ -122,12 +122,12 @@ export function FlowDiagram({
 
   if (!isVisible) {
     return (
-      <div className="mb-4">
+      <div className="mb-6 flex justify-end">
         <button
           onClick={() => setIsVisible(true)}
-          className="text-sm text-arkade-purple hover:text-arkade-orange transition-colors uppercase font-bold"
+          className="text-sm text-arkade-gray hover:text-arkade-purple transition-colors border border-arkade-gray hover:border-arkade-purple px-3 py-1 rounded"
         >
-          Show Flow Diagram
+          Show Diagram
         </button>
       </div>
     );
