@@ -1,9 +1,7 @@
 // src/components/Transaction/FlowDiagram.tsx
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MoneyDisplay } from '../UI/MoneyDisplay';
-import { truncateHash } from '../../lib/utils';
 import {
   FlowInput,
   FlowOutput,
@@ -28,8 +26,7 @@ export function FlowDiagram({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 200 });
   const [isVisible, setIsVisible] = useState(true);
-  const [hoveredLine, setHoveredLine] = useState<{ type: 'input' | 'output'; index: number } | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  // Hover effects removed per user request
 
   // Responsive width
   useEffect(() => {
@@ -76,23 +73,7 @@ export function FlowDiagram({
     secondary: '#3b82f6',  // blue
   };
 
-  // Get hovered item data for tooltip
-  const hoveredData = useMemo(() => {
-    if (!hoveredLine) return null;
-    if (hoveredLine.type === 'input') {
-      return inputs.find(i => i.index === hoveredLine.index);
-    } else {
-      return outputs.find(o => o.index === hoveredLine.index);
-    }
-  }, [hoveredLine, inputs, outputs]);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    // Use client coordinates for fixed positioning
-    setTooltipPos({
-      x: e.clientX,
-      y: e.clientY,
-    });
-  };
+  // Hover effects removed
 
   // Generate connector path (filled polygon with chevron) for inputs - matches mempool.space exactly
   const makeInputConnectorPath = (y: number, thickness: number) => {
@@ -134,7 +115,7 @@ export function FlowDiagram({
   }
 
   return (
-    <div ref={containerRef} className="mb-6 relative" onMouseMove={handleMouseMove}>
+    <div ref={containerRef} className="mb-6 relative">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-bold text-arkade-purple uppercase">Flow</h3>
         <button
@@ -163,19 +144,6 @@ export function FlowDiagram({
             {/* Output gradient: blue to purple */}
             <linearGradient id="output-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor={colors.secondary} />
-              <stop offset="100%" stopColor={colors.primary} />
-            </linearGradient>
-            
-            {/* Hover gradients */}
-            <linearGradient id="input-hover-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={colors.primary} />
-              <stop offset="30%" stopColor="white" />
-              <stop offset="100%" stopColor={colors.secondary} />
-            </linearGradient>
-            
-            <linearGradient id="output-hover-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={colors.secondary} />
-              <stop offset="70%" stopColor="white" />
               <stop offset="100%" stopColor={colors.primary} />
             </linearGradient>
             
@@ -210,18 +178,13 @@ export function FlowDiagram({
             const input = inputs.find(inp => inp.index === line.index);
             if (!input || line.zeroValue) return null;
             
-            const isHovered = hoveredLine?.type === 'input' && hoveredLine?.index === line.index;
-            const hasLink = input.txid;
-            
             return (
               <path
                 key={`input-connector-${i}`}
                 d={makeInputConnectorPath(line.outerY, line.thickness)}
-                fill={isHovered ? 'url(#input-hover-gradient)' : 'url(#input-connector-gradient)'}
+                fill="url(#input-connector-gradient)"
                 stroke="none"
-                className={hasLink ? 'cursor-pointer' : ''}
-                onMouseEnter={() => setHoveredLine({ type: 'input', index: line.index })}
-                onMouseLeave={() => setHoveredLine(null)}
+                className={input.txid ? 'cursor-pointer' : ''}
               />
             );
           })}
@@ -229,20 +192,17 @@ export function FlowDiagram({
           {/* Input lines */}
           {inputLines.map((line: SvgLine, i: number) => {
             const input = inputs.find(inp => inp.index === line.index);
-            const isHovered = hoveredLine?.type === 'input' && hoveredLine?.index === line.index;
             
             return (
               <path
                 key={`input-${i}`}
                 d={line.path}
-                stroke={isHovered ? 'url(#input-hover-gradient)' : 'url(#input-gradient)'}
+                stroke="url(#input-gradient)"
                 strokeWidth={line.thickness}
                 fill="none"
                 strokeLinecap={line.zeroValue ? 'round' : 'butt'}
                 className={input?.txid ? 'cursor-pointer' : ''}
                 style={{ opacity: line.zeroValue ? 0.5 : 1 }}
-                onMouseEnter={() => setHoveredLine({ type: 'input', index: line.index })}
-                onMouseLeave={() => setHoveredLine(null)}
               />
             );
           })}
@@ -251,20 +211,17 @@ export function FlowDiagram({
           {outputLines.map((line: SvgLine, i: number) => {
             const output = outputs.find(o => o.index === line.index);
             const isAnchor = output?.isAnchor;
-            const isHovered = hoveredLine?.type === 'output' && hoveredLine?.index === line.index;
             
             return (
               <path
                 key={`output-${i}`}
                 d={line.path}
-                stroke={isHovered ? 'url(#output-hover-gradient)' : 'url(#output-gradient)'}
+                stroke="url(#output-gradient)"
                 strokeWidth={line.thickness}
                 fill="none"
                 strokeLinecap={line.zeroValue ? 'round' : 'butt'}
                 className={output?.spentBy ? 'cursor-pointer' : ''}
                 style={{ opacity: isAnchor || line.zeroValue ? 0.3 : 1 }}
-                onMouseEnter={() => setHoveredLine({ type: 'output', index: line.index })}
-                onMouseLeave={() => setHoveredLine(null)}
               />
             );
           })}
@@ -274,17 +231,13 @@ export function FlowDiagram({
             const output = outputs.find(o => o.index === line.index);
             if (!output || line.zeroValue || output.isAnchor || !output.spentBy) return null;
             
-            const isHovered = hoveredLine?.type === 'output' && hoveredLine?.index === line.index;
-            
             return (
               <path
                 key={`output-connector-${i}`}
                 d={makeOutputConnectorPath(line.outerY, line.thickness)}
-                fill={isHovered ? 'url(#output-hover-gradient)' : 'url(#output-connector-gradient)'}
+                fill="url(#output-connector-gradient)"
                 stroke="none"
                 className="cursor-pointer"
-                onMouseEnter={() => setHoveredLine({ type: 'output', index: line.index })}
-                onMouseLeave={() => setHoveredLine(null)}
               />
             );
           })}
@@ -302,60 +255,6 @@ export function FlowDiagram({
           )}
         </svg>
 
-        {/* Tooltip - fixed position, follows mouse, non-interactive */}
-        {hoveredData && (
-          <div
-            className="fixed pointer-events-none bg-arkade-black/95 border border-arkade-purple rounded-lg px-3 py-2 text-xs z-[9999] max-w-xs shadow-lg"
-            style={{
-              left: tooltipPos.x + 15,
-              top: tooltipPos.y - 10,
-              transform: 'translateY(-100%)',
-            }}
-          >
-            {hoveredLine?.type === 'input' && (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-arkade-gray">Amount:</span>
-                  <MoneyDisplay sats={(hoveredData as FlowInput).amount} />
-                </div>
-                {(hoveredData as FlowInput).txid && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-arkade-gray">From:</span>
-                    <span className="text-arkade-purple font-mono">
-                      {truncateHash((hoveredData as FlowInput).txid!, 8, 8)}:{(hoveredData as FlowInput).vout}
-                    </span>
-                  </div>
-                )}
-                {(hoveredData as FlowInput).txid && (
-                  <div className="text-arkade-orange text-xs mt-1">Click to view source tx</div>
-                )}
-              </div>
-            )}
-            {hoveredLine?.type === 'output' && (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-arkade-gray">Amount:</span>
-                  <MoneyDisplay sats={(hoveredData as FlowOutput).amount} />
-                </div>
-                {(hoveredData as FlowOutput).scriptHex && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-arkade-gray">Script:</span>
-                    <span className="text-arkade-purple font-mono">
-                      {truncateHash((hoveredData as FlowOutput).scriptHex!, 10, 10)}
-                    </span>
-                  </div>
-                )}
-                {(hoveredData as FlowOutput).isAnchor && (
-                  <div className="text-arkade-gray italic">Anchor output</div>
-                )}
-                {(hoveredData as FlowOutput).spentBy && (
-                  <div className="text-arkade-orange text-xs mt-1">Click to view spending tx</div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Clickable overlay areas for navigation */}
         {inputLines.map((line: SvgLine, i: number) => {
           const input = inputs.find(inp => inp.index === line.index);
@@ -372,8 +271,6 @@ export function FlowDiagram({
                 width: config.connectorWidth + 30,
                 height: Math.max(line.thickness, 20),
               }}
-              onMouseEnter={() => setHoveredLine({ type: 'input', index: line.index })}
-              onMouseLeave={() => setHoveredLine(null)}
             />
           );
         })}
@@ -393,8 +290,6 @@ export function FlowDiagram({
                 width: config.connectorWidth + 30,
                 height: Math.max(line.thickness, 20),
               }}
-              onMouseEnter={() => setHoveredLine({ type: 'output', index: line.index })}
-              onMouseLeave={() => setHoveredLine(null)}
             />
           );
         })}
