@@ -11,6 +11,7 @@ import {
   calculateTotalValue,
   generateInputLines,
   generateOutputLines,
+  SvgLine,
 } from './FlowDiagram.utils';
 
 interface FlowDiagramProps {
@@ -95,6 +96,32 @@ export function FlowDiagram({
     }
   };
 
+  // Generate connector path (filled polygon with chevron) for inputs - matches mempool.space exactly
+  const makeInputConnectorPath = (y: number, thickness: number) => {
+    const halfWidth = thickness / 2;
+    const connectorWidth = config.connectorWidth;
+    const offset = 10;
+    // Polygon: starts off-screen left, comes in, forms chevron pointing right
+    return `M ${connectorWidth - offset} ${y - halfWidth} 
+            L ${halfWidth + connectorWidth - offset} ${y} 
+            L ${connectorWidth - offset} ${y + halfWidth} 
+            L -10 ${y + halfWidth} 
+            L -10 ${y - halfWidth} Z`;
+  };
+
+  // Generate connector path for outputs (chevron pointing right at the end)
+  const makeOutputConnectorPath = (y: number, thickness: number) => {
+    const halfWidth = thickness / 2;
+    const connectorWidth = config.connectorWidth;
+    const offset = 10;
+    // Polygon: chevron on left, extends off-screen right
+    return `M ${width - halfWidth - connectorWidth + offset} ${y - halfWidth} 
+            L ${width - connectorWidth + offset} ${y} 
+            L ${width - halfWidth - connectorWidth + offset} ${y + halfWidth} 
+            L ${width + 10} ${y + halfWidth} 
+            L ${width + 10} ${y - halfWidth} Z`;
+  };
+
   if (!isVisible) {
     return (
       <div className="mb-4">
@@ -108,27 +135,6 @@ export function FlowDiagram({
     );
   }
 
-  // Generate connector path (chevron shape) for inputs
-  const makeConnectorPath = (y: number, thickness: number) => {
-    const halfHeight = thickness / 2;
-    const connectorWidth = 15;
-    const startX = 5;
-    // Chevron pointing right: starts flat, goes to point, comes back
-    return `M ${startX} ${y - halfHeight} 
-            L ${startX + connectorWidth} ${y} 
-            L ${startX} ${y + halfHeight}`;
-  };
-
-  // Generate connector path for outputs (chevron pointing right at the end)
-  const makeOutputConnectorPath = (y: number, thickness: number) => {
-    const halfHeight = thickness / 2;
-    const connectorWidth = 15;
-    const endX = width - 5;
-    return `M ${endX - connectorWidth} ${y - halfHeight} 
-            L ${endX} ${y} 
-            L ${endX - connectorWidth} ${y + halfHeight}`;
-  };
-
   return (
     <div ref={containerRef} className="mb-6 relative" onMouseMove={handleMouseMove}>
       <div className="flex items-center justify-between mb-2">
@@ -141,7 +147,7 @@ export function FlowDiagram({
         </button>
       </div>
       
-      <div className="bg-arkade-black border border-arkade-purple rounded-lg p-4 relative">
+      <div className="bg-arkade-black border border-arkade-purple rounded-lg p-4 relative overflow-hidden">
         <svg
           width="100%"
           height={height + 10}
@@ -175,16 +181,21 @@ export function FlowDiagram({
               <stop offset="100%" stopColor={colors.primary} />
             </linearGradient>
             
+            {/* Connector gradients - fade from transparent to color */}
+            <linearGradient id="input-connector-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={colors.primary} stopOpacity="0" />
+              <stop offset="80%" stopColor={colors.primary} />
+            </linearGradient>
+            
+            <linearGradient id="output-connector-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="20%" stopColor={colors.primary} />
+              <stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
+            </linearGradient>
+
             {/* Fee gradient */}
             <linearGradient id="fee-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
               <stop offset="0%" stopColor={colors.secondary} />
               <stop offset="100%" stopColor="transparent" />
-            </linearGradient>
-
-            {/* Connector gradient */}
-            <linearGradient id="connector-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="transparent" />
-              <stop offset="100%" stopColor={colors.primary} />
             </linearGradient>
           </defs>
           
@@ -196,8 +207,8 @@ export function FlowDiagram({
             fill="none"
           />
           
-          {/* Input connectors (chevron shapes) */}
-          {inputLines.map((line, i) => {
+          {/* Input connectors (filled polygon with chevron) */}
+          {inputLines.map((line: SvgLine, i: number) => {
             const input = inputs.find(inp => inp.index === line.index);
             if (!input || line.zeroValue) return null;
             
@@ -205,23 +216,20 @@ export function FlowDiagram({
             const hasLink = input.txid;
             
             return (
-              <g key={`input-connector-${i}`}>
-                {/* Connector shape (filled chevron) */}
-                <path
-                  d={makeConnectorPath(line.outerY, line.thickness)}
-                  fill={isHovered ? 'white' : colors.primary}
-                  stroke="none"
-                  className={hasLink ? 'cursor-pointer' : ''}
-                  style={{ opacity: 0.8 }}
-                  onMouseEnter={() => setHoveredLine({ type: 'input', index: line.index })}
-                  onMouseLeave={() => setHoveredLine(null)}
-                />
-              </g>
+              <path
+                key={`input-connector-${i}`}
+                d={makeInputConnectorPath(line.outerY, line.thickness)}
+                fill={isHovered ? 'url(#input-hover-gradient)' : 'url(#input-connector-gradient)'}
+                stroke="none"
+                className={hasLink ? 'cursor-pointer' : ''}
+                onMouseEnter={() => setHoveredLine({ type: 'input', index: line.index })}
+                onMouseLeave={() => setHoveredLine(null)}
+              />
             );
           })}
           
           {/* Input lines */}
-          {inputLines.map((line, i) => {
+          {inputLines.map((line: SvgLine, i: number) => {
             const input = inputs.find(inp => inp.index === line.index);
             const isHovered = hoveredLine?.type === 'input' && hoveredLine?.index === line.index;
             
@@ -242,7 +250,7 @@ export function FlowDiagram({
           })}
           
           {/* Output lines */}
-          {outputLines.map((line, i) => {
+          {outputLines.map((line: SvgLine, i: number) => {
             const output = outputs.find(o => o.index === line.index);
             const isAnchor = output?.isAnchor;
             const isHovered = hoveredLine?.type === 'output' && hoveredLine?.index === line.index;
@@ -264,24 +272,22 @@ export function FlowDiagram({
           })}
 
           {/* Output connectors (for spent outputs) */}
-          {outputLines.map((line, i) => {
+          {outputLines.map((line: SvgLine, i: number) => {
             const output = outputs.find(o => o.index === line.index);
             if (!output || line.zeroValue || output.isAnchor || !output.spentBy) return null;
             
             const isHovered = hoveredLine?.type === 'output' && hoveredLine?.index === line.index;
             
             return (
-              <g key={`output-connector-${i}`}>
-                <path
-                  d={makeOutputConnectorPath(line.outerY, line.thickness)}
-                  fill={isHovered ? 'white' : colors.primary}
-                  stroke="none"
-                  className="cursor-pointer"
-                  style={{ opacity: 0.8 }}
-                  onMouseEnter={() => setHoveredLine({ type: 'output', index: line.index })}
-                  onMouseLeave={() => setHoveredLine(null)}
-                />
-              </g>
+              <path
+                key={`output-connector-${i}`}
+                d={makeOutputConnectorPath(line.outerY, line.thickness)}
+                fill={isHovered ? 'url(#output-hover-gradient)' : 'url(#output-connector-gradient)'}
+                stroke="none"
+                className="cursor-pointer"
+                onMouseEnter={() => setHoveredLine({ type: 'output', index: line.index })}
+                onMouseLeave={() => setHoveredLine(null)}
+              />
             );
           })}
           
@@ -304,7 +310,7 @@ export function FlowDiagram({
             className="absolute pointer-events-none bg-arkade-black/95 border border-arkade-purple rounded-lg px-3 py-2 text-xs z-50 max-w-xs"
             style={{
               left: Math.min(tooltipPos.x + 10, width - 200),
-              top: tooltipPos.y + 10,
+              top: tooltipPos.y - 60,
             }}
           >
             {hoveredLine?.type === 'input' && (
@@ -352,7 +358,7 @@ export function FlowDiagram({
         )}
 
         {/* Clickable overlay areas for navigation */}
-        {inputLines.map((line, i) => {
+        {inputLines.map((line: SvgLine, i: number) => {
           const input = inputs.find(inp => inp.index === line.index);
           if (!input?.txid) return null;
           
@@ -364,8 +370,8 @@ export function FlowDiagram({
               style={{
                 left: 0,
                 top: line.outerY - line.thickness / 2 + 16, // +16 for padding
-                width: 80,
-                height: line.thickness,
+                width: config.connectorWidth + 30,
+                height: Math.max(line.thickness, 20),
               }}
               onMouseEnter={() => setHoveredLine({ type: 'input', index: line.index })}
               onMouseLeave={() => setHoveredLine(null)}
@@ -373,7 +379,7 @@ export function FlowDiagram({
           );
         })}
 
-        {outputLines.map((line, i) => {
+        {outputLines.map((line: SvgLine, i: number) => {
           const output = outputs.find(o => o.index === line.index);
           if (!output?.spentBy) return null;
           
@@ -385,8 +391,8 @@ export function FlowDiagram({
               style={{
                 right: 0,
                 top: line.outerY - line.thickness / 2 + 16,
-                width: 80,
-                height: line.thickness,
+                width: config.connectorWidth + 30,
+                height: Math.max(line.thickness, 20),
               }}
               onMouseEnter={() => setHoveredLine({ type: 'output', index: line.index })}
               onMouseLeave={() => setHoveredLine(null)}
